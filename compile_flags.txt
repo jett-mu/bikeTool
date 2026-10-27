@@ -1,0 +1,4 @@
+-std=c++20
+-Iinclude
+-Ithird_party
+-I/opt/homebrew/Cellar/gdal/3.13.1_4/include

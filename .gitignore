@@ -1,0 +1,7 @@
+data/
+build/
+bin/
+web/static/data/
+__pycache__/
+*.pyc
+.DS_Store

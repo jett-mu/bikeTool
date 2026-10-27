@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>York Ride Planner</title>
+  <meta name="description" content="Plan bike routes across York Region using bike lanes, elevation and live wind, and compare the energy each route takes.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="panel" aria-label="Route planner">
+      <header class="brand">
+        <h1>York Ride Planner</h1>
+      </header>
+
+      <section class="trip" aria-label="Trip">
+        <div class="fields">
+          <div class="field">
+            <span class="pin pin-a" aria-hidden="true"><span>A</span></span>
+            <label class="visually-hidden" for="from-input">Start</label>
+            <input id="from-input" type="search" autocomplete="off" placeholder="Start" spellcheck="false">
+            <button type="button" class="pick-btn" data-pick="start" aria-pressed="false" title="Pick start on the map">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6.5"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/><circle cx="12" cy="12" r="1.6" class="dot"/></svg>
+              <span class="visually-hidden">Pick start on the map</span>
+            </button>
+            <ul class="suggest" id="from-suggest" role="listbox" hidden></ul>
+          </div>
+          <div class="field">
+            <span class="pin pin-b" aria-hidden="true"><span>B</span></span>
+            <label class="visually-hidden" for="to-input">Destination</label>
+            <input id="to-input" type="search" autocomplete="off" placeholder="Destination" spellcheck="false">
+            <button type="button" class="pick-btn" data-pick="end" aria-pressed="false" title="Pick destination on the map">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6.5"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/><circle cx="12" cy="12" r="1.6" class="dot"/></svg>
+              <span class="visually-hidden">Pick destination on the map</span>
+            </button>
+            <ul class="suggest" id="to-suggest" role="listbox" hidden></ul>
+          </div>
+        </div>
+        <div class="trip-actions">
+          <button type="button" class="icon-btn" id="swap-btn" title="Swap start and destination" aria-label="Swap start and destination" disabled>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v13m0 0-3-3m3 3 3-3M17 20V7m0 0-3 3m3-3 3 3"/></svg>
+          </button>
+          <button type="button" class="icon-btn" id="clear-btn" title="Clear trip" aria-label="Clear trip" disabled>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17"/></svg>
+          </button>
+        </div>
+      </section>
+
+      <section class="settings" aria-label="Ride settings">
+        <button type="button" class="setting-toggle" id="rider-toggle" aria-expanded="false" aria-controls="rider-panel">
+          <svg class="s-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16l4-7h5l3 7M10 9 8.5 6H7m8 3 1-3h2"/></svg>
+          <span class="s-text"><span class="s-main" id="rider-main">Commuter</span><span class="s-sub" id="rider-sub">85 kg, 150 W</span></span>
+          <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
+        </button>
+        <button type="button" class="setting-toggle" id="wind-toggle" aria-expanded="false" aria-controls="wind-panel">
+          <svg class="s-icon wind-icon" id="wind-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v15m0 0-4.5-4.5M12 19l4.5-4.5"/></svg>
+          <span class="s-text"><span class="s-main" id="wind-main">Wind</span><span class="s-sub" id="wind-sub">Fetching…</span></span>
+          <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
+        </button>
+
+        <div class="setting-panel" id="rider-panel" hidden>
+          <div class="chips" id="presets" role="radiogroup" aria-label="Rider preset">
+            <button type="button" role="radio" data-preset="commuter" aria-checked="true">Commuter</button>
+            <button type="button" role="radio" data-preset="road" aria-checked="false">Road bike</button>
+            <button type="button" role="radio" data-preset="cargo" aria-checked="false">Cargo</button>
+            <button type="button" role="radio" data-preset="ebike" aria-checked="false">E-assist</button>
+          </div>
+          <label class="slider">
+            <span>Rider + bike</span>
+            <input type="range" id="mass" min="45" max="180" step="1" value="85">
+            <output for="mass" id="mass-out">85 kg</output>
+          </label>
+          <label class="slider">
+            <span>Cruising power</span>
+            <input type="range" id="power" min="60" max="350" step="5" value="150">
+            <output for="power" id="power-out">150 W</output>
+          </label>
+          <label class="slider">
+            <span>Position</span>
+            <select id="cda">
+              <option value="0.55">Upright</option>
+              <option value="0.45" selected>Relaxed</option>
+              <option value="0.32">Drops</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="setting-panel" id="wind-panel" hidden>
+          <div class="segmented" role="radiogroup" aria-label="Wind source">
+            <button type="button" role="radio" data-wind="live" aria-checked="true">Live</button>
+            <button type="button" role="radio" data-wind="manual" aria-checked="false">Set my own</button>
+            <button type="button" role="radio" data-wind="none" aria-checked="false">Ignore</button>
+          </div>
+          <div class="wind-body">
+            <svg class="dial" id="dial" viewBox="-60 -60 120 120" role="slider" tabindex="0"
+                 aria-label="Wind direction" aria-valuemin="0" aria-valuemax="359" aria-valuenow="0">
+              <circle class="dial-ring" r="50"/>
+              <g class="dial-ticks" id="dial-ticks"></g>
+              <text class="dial-card" y="-35">N</text>
+              <text class="dial-card" x="38" y="4">E</text>
+              <text class="dial-card" y="43">S</text>
+              <text class="dial-card" x="-38" y="4">W</text>
+              <g id="dial-arrow">
+                <line class="dial-shaft" x1="0" y1="-44" x2="0" y2="30"/>
+                <path class="dial-head" d="M0 40 L-8 26 L8 26 Z"/>
+                <circle class="dial-tail" cy="-44" r="5"/>
+              </g>
+            </svg>
+            <div class="wind-readout">
+              <p class="wind-big" id="wind-big">Fetching wind…</p>
+              <p class="wind-note" id="wind-note"></p>
+              <label class="slider compact" id="wind-speed-wrap" hidden>
+                <span>Speed</span>
+                <input type="range" id="wind-speed" min="0" max="15" step="0.5" value="4">
+                <output for="wind-speed" id="wind-speed-out">14 km/h</output>
+              </label>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="routes-block" aria-labelledby="routes-h">
+        <div class="routes-head">
+          <h2 id="routes-h">Routes</h2>
+          <span class="muted" id="routes-meta" aria-live="polite"></span>
+        </div>
+        <div id="warnings"></div>
+        <div id="routes"></div>
+      </section>
+
+      <footer class="credits">
+        Map data © OpenStreetMap contributors, York Region Open Data, Ontario DTM. Wind from Open-Meteo.
+      </footer>
+    </aside>
+
+    <main class="map-wrap">
+      <div id="map" aria-label="Map"></div>
+      <div class="progress" id="progress" hidden></div>
+
+      <div class="pick-banner" id="pick-banner" hidden role="status">
+        <span class="pin" id="pick-pin" aria-hidden="true"><span>A</span></span>
+        <span id="pick-text">Click the map to set your start</span>
+        <button type="button" id="pick-cancel">Cancel</button>
+      </div>
+
+      <div class="layers" id="layers">
+        <button type="button" class="map-btn" id="layers-toggle" aria-expanded="false" aria-controls="layers-body" title="Map layers">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5M3 16l9 5 9-5"/></svg>
+          <span>Layers</span>
+        </button>
+        <div class="layers-body" id="layers-body" hidden>
+          <div class="base-options" id="base-options" role="radiogroup" aria-label="Base map"></div>
+          <div id="overlay-options"></div>
+          <div class="legend" id="legend"></div>
+        </div>
+      </div>
+
+      <section class="drawer" id="drawer" hidden aria-label="Elevation profile">
+        <div class="drawer-head">
+          <button type="button" class="drawer-toggle" id="drawer-toggle" aria-expanded="true" aria-controls="chart-box">
+            <span class="swatch" id="drawer-swatch"></span>
+            <span id="drawer-title">Elevation</span>
+            <span class="muted" id="drawer-sub"></span>
+            <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
+          </button>
+          <div class="segmented small" role="radiogroup" aria-label="Colour the route by">
+            <button type="button" role="radio" data-color="profile" aria-checked="true">Plain</button>
+            <button type="button" role="radio" data-color="grade" aria-checked="false">Grade</button>
+            <button type="button" role="radio" data-color="facility" aria-checked="false">Bike lanes</button>
+          </div>
+        </div>
+        <div class="chart-box" id="chart-box"><canvas id="profile-chart"></canvas></div>
+      </section>
+
+      <div class="toast" id="toast" role="status" hidden></div>
+    </main>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>
